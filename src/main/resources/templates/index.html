@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .chat-container {
+            width: 500px;
+            max-height: 90vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-box {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 12px 15px;
+            border-radius: 10px;
+            max-width: 80%;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .user {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 0;
+        }
+        .bot {
+            background: #e5e5ea;
+            color: black;
+            margin-right: auto;
+            border-bottom-left-radius: 0;
+        }
+        .input-area {
+            display: flex;
+            border-top: 1px solid #ddd;
+        }
+        .input-area input {
+            flex: 1;
+            border: none;
+            padding: 15px;
+            font-size: 16px;
+            outline: none;
+        }
+        .input-area button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0 20px;
+            cursor: pointer;
+        }
+        .input-area button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+<div class="chat-container">
+    <div class="chat-box" id="chatBox"></div>
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Type a message..." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+    async function sendMessage() {
+        const input = document.getElementById("userInput");
+        const chatBox = document.getElementById("chatBox");
+        const message = input.value.trim();
+        if (!message) return;
+
+        // Display user message
+        const userMsg = document.createElement("div");
+        userMsg.className = "message user";
+        userMsg.textContent = message;
+        chatBox.appendChild(userMsg);
+
+        input.value = "";
+
+        // Create bot message container
+        const botMsg = document.createElement("div");
+        botMsg.className = "message bot";
+        chatBox.appendChild(botMsg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        try {
+            const response = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message })
+            });
+
+            if (!response.body) {
+                botMsg.textContent = "Error: no response body";
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let text = "";
+
+            function extractJsonObjects(str) {
+                const objects = [];
+                let braceCount = 0;
+                let start = null;
+                for (let i = 0; i < str.length; i++) {
+                    if (str[i] === '{') {
+                        if (braceCount === 0) start = i;
+                        braceCount++;
+                    } else if (str[i] === '}') {
+                        braceCount--;
+                        if (braceCount === 0 && start !== null) {
+                            objects.push(str.substring(start, i + 1));
+                            start = null;
+                        }
+                    }
+                }
+                return { objects, remaining: braceCount > 0 && start !== null ? str.substring(start) : "" };
+            }
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+
+                const { objects, remaining } = extractJsonObjects(buffer);
+                buffer = remaining;
+
+                for (let objStr of objects) {
+                    try {
+                        const json = JSON.parse(objStr);
+                        if (json.response) {
+                            text += json.response;
+                            botMsg.textContent = text;
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        }
+                    } catch (e) {
+                        console.error("Failed to parse JSON:", objStr, e);
+                    }
+                }
+            }
+        } catch (err) {
+            botMsg.textContent = "Error: " + err.message;
+        }
+    }
+</script>
+</body>
+</html>

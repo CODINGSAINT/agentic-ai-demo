@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Chat V2</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .chat-box {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fafafa;
+            display: flex;
+            flex-direction: column;
+        }
+        .message {
+            margin: 8px 0;
+            padding: 12px 15px;
+            border-radius: 10px;
+            max-width: 70%;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 16px;
+        }
+        .user {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 0;
+        }
+        .bot {
+            background: #e5e5ea;
+            color: black;
+            margin-right: auto;
+            border-bottom-left-radius: 0;
+        }
+        .input-area {
+            display: flex;
+            border-top: 1px solid #ddd;
+            padding: 10px;
+            background: white;
+        }
+        .input-area input {
+            flex: 1;
+            border: none;
+            padding: 15px;
+            font-size: 16px;
+            outline: none;
+            border-radius: 8px;
+            background: #f1f1f1;
+            margin-right: 10px;
+        }
+        .input-area button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s ease-in-out;
+        }
+        .input-area button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+<div class="chat-container">
+    <div class="chat-box" id="chatBox"></div>
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Type a message..." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+    async function sendMessage() {
+        const input = document.getElementById("userInput");
+        const chatBox = document.getElementById("chatBox");
+        const message = input.value.trim();
+        if (!message) return;
+
+        // Show user message
+        const userMsg = document.createElement("div");
+        userMsg.className = "message user";
+        userMsg.textContent = message;
+        chatBox.appendChild(userMsg);
+        input.value = "";
+
+        // Prepare bot message container
+        const botMsg = document.createElement("div");
+        botMsg.className = "message bot";
+        botMsg.textContent = "Thinking...";
+        chatBox.appendChild(botMsg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        try {
+            const response = await fetch("/api/chat/v2", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message })
+            });
+
+            if (!response.ok) {
+                botMsg.textContent = "Error: " + response.statusText;
+                return;
+            }
+
+            const text = await response.text();
+            botMsg.textContent = text;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        } catch (err) {
+            botMsg.textContent = "Error: " + err.message;
+        }
+    }
+</script>
+</body>
+</html>
